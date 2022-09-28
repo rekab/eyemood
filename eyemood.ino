@@ -21,6 +21,12 @@
 #define EYES_PIN 13
 #define NUM_NEOPIXEL_PIXELS 12
 
+#define COLOR_RED Adafruit_NeoPixel::Color(255, 0, 0)
+#define COLOR_GREEN Adafruit_NeoPixel::Color(0, 255, 0)
+#define COLOR_BLUE Adafruit_NeoPixel::Color(0, 0, 255)
+#define COLOR_BLACK Adafruit_NeoPixel::Color(0, 0, 0)
+
+
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
 // Parameter 3 = pixel type flags, add together as needed:
@@ -34,20 +40,11 @@ Adafruit_NeoPixel eyes = Adafruit_NeoPixel(NUM_NEOPIXEL_PIXELS, EYES_PIN, NEO_GR
 // and minimize distance between Arduino and first pixel.  Avoid connecting
 // on a live circuit...if you must, connect GND first.
 
-enum Mood {
-  UNKNOWN_MOOD, // Starting state.
-  WHITE_MOOD,
-  RED_MOOD,
-  GREEN_MOOD,
-  BLUE_MOOD,
-  YELLOW_MOOD
-};
-
-Mood curMood = UNKNOWN_MOOD;
-
+// Current animation being run.
+uint8_t curStepper = 0;
+// Steps since the stepper changed
 uint32_t stepsSinceChange = 0;
-uint16_t curPixelNum = 0;
-uint32_t curColor = 0;
+
 bool whiteToggle = false;
 bool redToggle = false;
 bool greenToggle = false;
@@ -56,38 +53,137 @@ bool yellowToggle = false;
 
 reaction animationReaction = INVALID_REACTION;
 
-// Returns the color of the current pixel based on the mood.
-uint32_t getColor() {
-  switch (curMood) {
-    case WHITE_MOOD:
-      return eyes.Color(255, 255, 255);
-    case RED_MOOD:
-      return eyes.Color(255, 0, 0);
-    case GREEN_MOOD:
-      return eyes.Color(0, 255, 0);
-    case BLUE_MOOD:
-      return eyes.Color(0, 0, 255);
-    case YELLOW_MOOD:
-      return eyes.Color(255, 255, 0);
+
+// Class to step through an animation
+class Stepper {
+
+  protected:
+  bool setupDone;
+
+  // Animate setup. Returns true when setup is done.
+  virtual bool setupStep() = 0;
+
+  // Basic animation step.
+  virtual void animationStep() = 0;
+
+  public:
+  Stepper() : setupDone(false) { }
+
+  virtual bool resetToSetup() {
+    setupDone = false;
   }
-  return eyes.Color(0, 0, 0);
-}
+
+  virtual void step() {
+    if (setupDone) {
+      Serial.println("calling animationStep()");
+      animationStep();
+    } else {
+      Serial.println("calling setupStep()");
+      setupDone = setupStep();
+      Serial.print("setupDone=");
+      Serial.println(setupDone);
+    }
+  }
+};
+
+class TwoColorRotatingStepper : public Stepper {
+  uint8_t setupPixel, color1Start, color2Start;
+  uint32_t color1, color2;
+
+  public:
+  TwoColorRotatingStepper(uint32_t color1, uint32_t color2) :
+    setupPixel(0),
+    color1Start(0),
+    color2Start(NUM_NEOPIXEL_PIXELS / 2),
+    color1(color1),
+    color2(color2) {}
+
+  virtual bool resetToSetup() {
+    setupPixel = 0;
+    Stepper::resetToSetup();
+  }
+
+  virtual bool setupStep() {
+    Serial.print("TwoColorRotationStepper: setupStep pixel ");
+    Serial.println(setupPixel);
+    // Color half the pixels color1, the other half color2
+    eyes.setPixelColor(setupPixel,
+        setupPixel < color2Start ? color1 : color2);
+    eyes.show();
+    setupPixel++;
+    return setupPixel >= NUM_NEOPIXEL_PIXELS;
+  }
+
+  virtual void animationStep() {
+    Serial.println("TwoColorRotationStepper::animationStep()");
+    color1Start++;
+    color1Start %= NUM_NEOPIXEL_PIXELS; // Have we walked off the end?
+    Serial.print("TwoColorRotationStepper: pixel ");
+    Serial.print(color1Start);
+    Serial.print(" to color1 ");
+    Serial.print(color1, HEX);
+    eyes.setPixelColor(color1Start, color1);
+
+    color2Start++;
+    color2Start %= NUM_NEOPIXEL_PIXELS;
+    Serial.print(" pixel ");
+    Serial.print(color2Start);
+    Serial.print(" to color2 ");
+    Serial.println(color2, HEX);
+    eyes.setPixelColor(color2Start, color2);
+
+    eyes.show();
+  }
+};
+
+class OnePixelSpinner : public Stepper {
+  uint32_t color;
+  uint8_t curPixel;
+  public:
+  OnePixelSpinner(uint32_t color) : color(color), curPixel(0) {}
+
+  virtual bool setupStep() {
+    if (curPixel == 0) {
+      eyes.setPixelColor(curPixel, color);
+    } else {
+      eyes.setPixelColor(curPixel, COLOR_BLACK);
+    }
+    curPixel++;
+    return curPixel >= NUM_NEOPIXEL_PIXELS;
+  }
+
+  virtual void animationStep() {
+    uint8_t prevPixel = curPixel % NUM_NEOPIXEL_PIXELS;
+    ++curPixel %= NUM_NEOPIXEL_PIXELS;
+    Serial.print("OnePixelSpinner: pixel ");
+    Serial.print(prevPixel);
+    Serial.print(" to black and pixel ");
+    Serial.print(curPixel);
+    Serial.print(" to ");
+    Serial.println(color, HEX);
+    eyes.setPixelColor(prevPixel, COLOR_BLACK);
+    eyes.setPixelColor(curPixel, color);
+    eyes.show();
+  }
+};
+
+Stepper* steppers[] = {
+  new TwoColorRotatingStepper(COLOR_RED, COLOR_BLUE),
+  new TwoColorRotatingStepper(COLOR_BLUE, COLOR_GREEN),
+  new TwoColorRotatingStepper(COLOR_RED, COLOR_GREEN),
+  new OnePixelSpinner(COLOR_RED),
+  new OnePixelSpinner(COLOR_GREEN)
+};
 
 void step() {
-  Serial.println("step()ing");
+  Serial.print("step()ing: curStepper=");
+  Serial.print(curStepper);
   stepsSinceChange++;
-  curPixelNum++;
-  if (curPixelNum >= NUM_NEOPIXEL_PIXELS) {
-    curPixelNum = 0;
-  }
-  uint32_t color = getColor();
+  Serial.print("stepsSinceChange=");
+  Serial.println(stepsSinceChange);
 
-  Serial.print("setting pixel ");
-  Serial.print(curPixelNum);
-  Serial.print(" to color ");
-  Serial.println(color, HEX);
-  eyes.setPixelColor(curPixelNum, color);
-  eyes.show();
+  Stepper* stepper = steppers[curStepper];
+  stepper->step();
 }
 
 void goWhiteMood() {
@@ -95,7 +191,10 @@ void goWhiteMood() {
   Serial.println("white");
   stepsSinceChange = 0;
 	digitalWrite(WHITE_MOOD_BUTTON_LED_PIN, whiteToggle ? HIGH : LOW);
-  curMood = WHITE_MOOD;
+  if (curStepper != 0) {
+    steppers[0]->resetToSetup();
+  }
+  curStepper = 0;
 }
 
 void goRedMood() {
@@ -103,7 +202,10 @@ void goRedMood() {
   Serial.println("red");
   stepsSinceChange = 0;
 	digitalWrite(RED_MOOD_BUTTON_LED_PIN, redToggle ? HIGH : LOW);
-  curMood = RED_MOOD;
+  if (curStepper != 1) {
+    steppers[1]->resetToSetup();
+  }
+  curStepper = 1;
 }
 
 void goGreenMood() {
@@ -111,7 +213,10 @@ void goGreenMood() {
   Serial.println("green");
   stepsSinceChange = 0;
 	digitalWrite(GREEN_MOOD_BUTTON_LED_PIN, greenToggle ? HIGH : LOW);
-  curMood = GREEN_MOOD;
+  if (curStepper != 2) {
+    steppers[2]->resetToSetup();
+  }
+  curStepper = 2;
 }
 
 void goBlueMood() {
@@ -119,7 +224,10 @@ void goBlueMood() {
   Serial.println("blue");
   stepsSinceChange = 0;
 	digitalWrite(BLUE_MOOD_BUTTON_LED_PIN, blueToggle ? HIGH : LOW);
-  curMood = BLUE_MOOD;
+  if (curStepper != 3) {
+    steppers[3]->resetToSetup();
+  }
+  curStepper = 3;
 }
 
 void goYellowMood() {
@@ -127,7 +235,10 @@ void goYellowMood() {
   Serial.println("yellow");
   stepsSinceChange = 0;
 	digitalWrite(YELLOW_MOOD_BUTTON_LED_PIN, yellowToggle ? HIGH : LOW);
-  curMood = YELLOW_MOOD;
+  if (curStepper != 4) {
+    steppers[4]->resetToSetup();
+  }
+  curStepper = 4;
 }
 
 Reactduino app([] () {

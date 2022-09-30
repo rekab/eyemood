@@ -56,7 +56,6 @@ reaction animationReaction = INVALID_REACTION;
 
 // Class to step through an animation
 class Stepper {
-
   protected:
   bool setupDone;
 
@@ -65,6 +64,13 @@ class Stepper {
 
   // Basic animation step.
   virtual void animationStep() = 0;
+
+  void setAllPixelsToColor(uint32_t color) {
+    for (uint8_t i = 0; i < NUM_NEOPIXEL_PIXELS; i++) {
+      eyes.setPixelColor(i, color);
+    }
+    eyes.show();
+  }
 
   public:
   Stepper() : setupDone(false) { }
@@ -136,6 +142,8 @@ class TwoColorRotatingStepper : public Stepper {
   }
 };
 
+// Note: currently, only one illuminated pixel doesn't draw enough power to
+// keep that USB battery on.
 class OnePixelSpinner : public Stepper {
   uint32_t color;
   uint8_t curPixel;
@@ -143,16 +151,19 @@ class OnePixelSpinner : public Stepper {
   OnePixelSpinner(uint32_t color) : color(color), curPixel(0) {}
 
   virtual bool setupStep() {
+    Serial.println("OnePixelSpinner setup()");
     if (curPixel == 0) {
       eyes.setPixelColor(curPixel, color);
     } else {
       eyes.setPixelColor(curPixel, COLOR_BLACK);
     }
+    eyes.show();
     curPixel++;
     return curPixel >= NUM_NEOPIXEL_PIXELS;
   }
 
   virtual void animationStep() {
+    Serial.println("OnePixelSpinner animationStep()");
     uint8_t prevPixel = curPixel % NUM_NEOPIXEL_PIXELS;
     ++curPixel %= NUM_NEOPIXEL_PIXELS;
     Serial.print("OnePixelSpinner: pixel ");
@@ -167,20 +178,106 @@ class OnePixelSpinner : public Stepper {
   }
 };
 
+class FadeInOut : public Stepper {
+  uint8_t r, g, b, gamma; 
+
+  public:
+  FadeInOut(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b), gamma(0) {}
+
+  virtual bool setupStep() {
+    Serial.println("FadeInOut setup()");
+    eyes.clear();
+    eyes.show();
+    return true;
+  }
+
+  virtual void animationStep() {
+    Serial.println("FadeInOut animationStep()");
+    uint8_t brightness = eyes.sine8(gamma += 10);
+    setAllPixelsToColor(
+        eyes.Color(r * (brightness / 255.0),
+          g * (brightness / 255.0),
+          b * (brightness / 255.0)));
+  }
+};
+
+class Sparkle : public Stepper {
+  uint8_t numSparkles;
+  uint32_t color;
+
+  public:
+  Sparkle(uint8_t numSparkles, uint32_t color) : numSparkles(numSparkles), color(color) {
+  }
+
+  virtual bool setupStep() {
+    Serial.println("Sparkle setup()");
+    eyes.clear();
+    eyes.show();
+    return true;
+  }
+
+  virtual void animationStep() {
+    Serial.println("Sparkle animationStep()");
+    // Turn all pixels on again.
+    eyes.clear();
+    // Pick some pixels to turn back on.
+    for (uint8_t i=0; i < numSparkles; i++) {
+      uint8_t pixel = (uint8_t) random(NUM_NEOPIXEL_PIXELS);
+      eyes.setPixelColor(pixel, color);
+    }
+    eyes.show();
+  }
+};
+
+/*
+// Sweeps 3 active pixels, 3 through 9
+class PendulumLeftRight : public Stepper {
+  uint32_t color;
+  uint8_t activePixel;
+  public:
+  PendulumLeftRight(uint32_t color) : color(color), sweep(6) {}
+  virtual bool setupStep() {
+    setAllPixelsToColor(COLOR_BLACK);
+    colorActivePixels();
+    eyes.show();
+    return true;
+  }
+
+  void colorActivePixels() {
+    eyes.setPixelColor(activePixel - 1, color);
+    eyes.setPixelColor(activePixel, color);
+    eyes.setPixelColor(activePixel + 1, color);
+  }
+
+  virtual void animationStep() {
+    setAllPixelsToColor(COLOR_BLACK);
+    colorActivePixels();
+    activePixel = 
+    // how many cycles we skip is determined by sweep
+  }
+}
+*/
+
 Stepper* steppers[] = {
   new TwoColorRotatingStepper(COLOR_RED, COLOR_BLUE),
   new TwoColorRotatingStepper(COLOR_BLUE, COLOR_GREEN),
   new TwoColorRotatingStepper(COLOR_RED, COLOR_GREEN),
   new OnePixelSpinner(COLOR_RED),
-  new OnePixelSpinner(COLOR_GREEN)
+  new OnePixelSpinner(COLOR_GREEN),
+  new FadeInOut(255, 0, 200),
+  new FadeInOut(0, 0, 255),
+  new Sparkle(3, eyes.Color(255, 0, 0)),
+  new Sparkle(2, eyes.Color(200, 165, 0))
 };
 
 void step() {
-  Serial.print("step()ing: curStepper=");
-  Serial.print(curStepper);
   stepsSinceChange++;
-  Serial.print("stepsSinceChange=");
-  Serial.println(stepsSinceChange);
+  //Serial.print("step()ing: curStepper=");
+  //Serial.print(curStepper);
+  //Serial.print(" stepsSinceChange=");
+  //Serial.print(stepsSinceChange);
+  //Serial.print(" curStepper=");
+  //Serial.print(curStepper);
 
   Stepper* stepper = steppers[curStepper];
   stepper->step();
@@ -191,10 +288,8 @@ void goWhiteMood() {
   Serial.println("white");
   stepsSinceChange = 0;
 	digitalWrite(WHITE_MOOD_BUTTON_LED_PIN, whiteToggle ? HIGH : LOW);
-  if (curStepper != 0) {
-    steppers[0]->resetToSetup();
-  }
-  curStepper = 0;
+  ++curStepper %= sizeof(steppers);
+  steppers[curStepper]->resetToSetup();
 }
 
 void goRedMood() {
@@ -202,10 +297,8 @@ void goRedMood() {
   Serial.println("red");
   stepsSinceChange = 0;
 	digitalWrite(RED_MOOD_BUTTON_LED_PIN, redToggle ? HIGH : LOW);
-  if (curStepper != 1) {
-    steppers[1]->resetToSetup();
-  }
-  curStepper = 1;
+  ++curStepper %= sizeof(steppers);
+  steppers[curStepper]->resetToSetup();
 }
 
 void goGreenMood() {
@@ -213,10 +306,8 @@ void goGreenMood() {
   Serial.println("green");
   stepsSinceChange = 0;
 	digitalWrite(GREEN_MOOD_BUTTON_LED_PIN, greenToggle ? HIGH : LOW);
-  if (curStepper != 2) {
-    steppers[2]->resetToSetup();
-  }
-  curStepper = 2;
+  ++curStepper %= sizeof(steppers);
+  steppers[curStepper]->resetToSetup();
 }
 
 void goBlueMood() {
@@ -224,10 +315,8 @@ void goBlueMood() {
   Serial.println("blue");
   stepsSinceChange = 0;
 	digitalWrite(BLUE_MOOD_BUTTON_LED_PIN, blueToggle ? HIGH : LOW);
-  if (curStepper != 3) {
-    steppers[3]->resetToSetup();
-  }
-  curStepper = 3;
+  ++curStepper %= sizeof(steppers);
+  steppers[curStepper]->resetToSetup();
 }
 
 void goYellowMood() {
@@ -235,10 +324,8 @@ void goYellowMood() {
   Serial.println("yellow");
   stepsSinceChange = 0;
 	digitalWrite(YELLOW_MOOD_BUTTON_LED_PIN, yellowToggle ? HIGH : LOW);
-  if (curStepper != 4) {
-    steppers[4]->resetToSetup();
-  }
-  curStepper = 4;
+  ++curStepper %= sizeof(steppers);
+  steppers[curStepper]->resetToSetup();
 }
 
 Reactduino app([] () {

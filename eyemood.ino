@@ -81,13 +81,13 @@ class Stepper {
 
   virtual void step() {
     if (setupDone) {
-      Serial.println("calling animationStep()");
+      //Serial.println("calling animationStep()");
       animationStep();
     } else {
-      Serial.println("calling setupStep()");
+      //Serial.println("calling setupStep()");
       setupDone = setupStep();
-      Serial.print("setupDone=");
-      Serial.println(setupDone);
+      //Serial.print("setupDone=");
+      //Serial.println(setupDone);
     }
   }
 };
@@ -121,7 +121,7 @@ class TwoColorRotatingStepper : public Stepper {
   }
 
   virtual void animationStep() {
-    Serial.println("TwoColorRotationStepper::animationStep()");
+    //Serial.println("TwoColorRotationStepper::animationStep()");
     color1Start++;
     color1Start %= NUM_NEOPIXEL_PIXELS; // Have we walked off the end?
     Serial.print("TwoColorRotationStepper: pixel ");
@@ -163,17 +163,53 @@ class OnePixelSpinner : public Stepper {
   }
 
   virtual void animationStep() {
-    Serial.println("OnePixelSpinner animationStep()");
+    //Serial.println("OnePixelSpinner animationStep()");
     uint8_t prevPixel = curPixel % NUM_NEOPIXEL_PIXELS;
     ++curPixel %= NUM_NEOPIXEL_PIXELS;
-    Serial.print("OnePixelSpinner: pixel ");
-    Serial.print(prevPixel);
-    Serial.print(" to black and pixel ");
-    Serial.print(curPixel);
-    Serial.print(" to ");
-    Serial.println(color, HEX);
+    //Serial.print("OnePixelSpinner: pixel ");
+    //Serial.print(prevPixel);
+    //Serial.print(" to black and pixel ");
+    //Serial.print(curPixel);
+    //Serial.print(" to ");
+    //Serial.println(color, HEX);
     eyes.setPixelColor(prevPixel, COLOR_BLACK);
     eyes.setPixelColor(curPixel, color);
+    eyes.show();
+  }
+};
+
+class TwoPixelSpinner : public Stepper {
+  uint32_t color;
+  uint8_t curPixel;
+  public:
+  TwoPixelSpinner(uint32_t color) : color(color), curPixel(0) {}
+
+  virtual bool setupStep() {
+    Serial.println("TwoPixelSpinner setup()");
+    if (curPixel == 0) {
+      eyes.setPixelColor(curPixel, color);
+    } else {
+      eyes.setPixelColor(curPixel, COLOR_BLACK);
+    }
+    eyes.show();
+    curPixel++;
+    return curPixel >= NUM_NEOPIXEL_PIXELS;
+  }
+
+  virtual void animationStep() {
+    //Serial.println("TwoPixelSpinner animationStep()");
+    uint8_t prevPixel = curPixel % NUM_NEOPIXEL_PIXELS;
+    ++curPixel %= NUM_NEOPIXEL_PIXELS;
+    eyes.setPixelColor(prevPixel, COLOR_BLACK);
+    eyes.setPixelColor(curPixel, color);
+
+    // do again for the opposite side
+    uint8_t prevPixelOpp =
+      (prevPixel + NUM_NEOPIXEL_PIXELS/2) % NUM_NEOPIXEL_PIXELS;
+    uint8_t curPixelOpp =
+      (curPixel + NUM_NEOPIXEL_PIXELS/2) % NUM_NEOPIXEL_PIXELS;
+    eyes.setPixelColor(prevPixelOpp, COLOR_BLACK);
+    eyes.setPixelColor(curPixelOpp, color);
     eyes.show();
   }
 };
@@ -192,7 +228,7 @@ class FadeInOut : public Stepper {
   }
 
   virtual void animationStep() {
-    Serial.println("FadeInOut animationStep()");
+    //Serial.println("FadeInOut animationStep()");
     uint8_t brightness = eyes.sine8(gamma += 10);
     setAllPixelsToColor(
         eyes.Color(r * (brightness / 255.0),
@@ -217,7 +253,7 @@ class Sparkle : public Stepper {
   }
 
   virtual void animationStep() {
-    Serial.println("Sparkle animationStep()");
+    //Serial.println("Sparkle animationStep()");
     // Turn all pixels on again.
     eyes.clear();
     // Pick some pixels to turn back on.
@@ -228,6 +264,57 @@ class Sparkle : public Stepper {
     eyes.show();
   }
 };
+
+class EvenOdd : public Stepper {
+  uint32_t color1, color2;
+  bool isEven;
+  public:
+  EvenOdd(uint32_t color1, uint32_t color2) :
+    color1(color1), color2(color2), isEven(true) {}
+
+  virtual bool setupStep() {
+    Serial.println("EvenOdd setup()");
+    return true;
+  }
+
+  virtual void animationStep() {
+    for (uint8_t i = 0; i < NUM_NEOPIXEL_PIXELS; i++) {
+      eyes.setPixelColor(i, isEven && i % 2 ? color1 : color2);
+    }
+    isEven = !isEven;
+    eyes.show();
+  }
+};
+
+
+class Rainbow : public Stepper {
+  uint16_t speed, hue;
+  public:
+  Rainbow(uint16_t speed) : speed(speed), hue(0) {}
+
+  virtual bool setupStep() {
+    Serial.println("Rainbow setup()");
+    eyes.rainbow(hue);
+    eyes.show();
+  }
+
+  virtual void animationStep() {
+    //Serial.println("Rainbow setup()");
+    hue += speed;
+    eyes.rainbow(hue);
+    eyes.show();
+  }
+};
+
+/*
+class TwoCounterRotating : public Stepper {
+  uint32_t color1, color2; // best if primary colors: or'd together
+  public:
+  CounterRotating(uint32_t color1, uint32_t color2) : color1(color1), color2(color2) { }
+};
+*/
+
+
 
 /*
 // Sweeps 3 active pixels, 3 through 9
@@ -255,10 +342,14 @@ class PendulumLeftRight : public Stepper {
     activePixel = 
     // how many cycles we skip is determined by sweep
   }
-}
+};
+
+class TwoPixelsOppositeRotation : public Stepper {
+};
 */
 
 Stepper* steppers[] = {
+  new Rainbow(1000),
   new TwoColorRotatingStepper(COLOR_RED, COLOR_BLUE),
   new TwoColorRotatingStepper(COLOR_BLUE, COLOR_GREEN),
   new TwoColorRotatingStepper(COLOR_RED, COLOR_GREEN),
@@ -267,7 +358,11 @@ Stepper* steppers[] = {
   new FadeInOut(255, 0, 200),
   new FadeInOut(0, 0, 255),
   new Sparkle(3, eyes.Color(255, 0, 0)),
-  new Sparkle(2, eyes.Color(200, 165, 0))
+  new Sparkle(2, eyes.Color(200, 165, 0)),
+  new TwoPixelSpinner(eyes.Color(0, 150, 150)),
+  new TwoPixelSpinner(eyes.Color(200, 0, 100)),
+  new EvenOdd(COLOR_RED, COLOR_BLUE),
+  new EvenOdd(COLOR_GREEN, COLOR_BLACK)
 };
 
 void step() {
@@ -280,6 +375,8 @@ void step() {
   //Serial.print(curStepper);
 
   Stepper* stepper = steppers[curStepper];
+  if (NULL == stepper) {
+
   stepper->step();
 }
 

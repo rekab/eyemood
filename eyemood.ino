@@ -32,6 +32,7 @@
 #define COLOR_BLACK Adafruit_NeoPixel::Color(0, 0, 0)
 #define COLOR_CYAN Adafruit_NeoPixel::Color(0, 150, 150)
 #define COLOR_LIGHT_PURPLE Adafruit_NeoPixel::Color(200, 0, 100)
+#define COLOR_WHITE Adafruit_NeoPixel::Color(255, 255, 255)
 
 
 // Parameter 1 = number of pixels in strip
@@ -446,8 +447,32 @@ class FadeInOutSpinner : public Stepper {
   }
 };
 
+class Blink : public Stepper {
+  bool blinked;
+  uint32_t bgColor, fgColor;
+  public:
+  Blink(uint32_t bgColor, uint32_t fgColor) : bgColor(bgColor), fgColor(fgColor), blinked(false) {}
+  virtual bool setupStep() {
+    Serial.println("Blink setup()");
+    setAllPixelsToColor(bgColor);
+    eyes.show();
+    return true;
+  }
+  virtual void animationStep() {
+    if (!blinked && 95 < random(100)) {
+      setAllPixelsToColor(fgColor);
+      blinked = true;
+    } else {
+      setAllPixelsToColor(bgColor);
+      blinked = false;
+    }
+    eyes.show();
+  }
+};
 
 Stepper* steppers[] = {
+  new Blink(COLOR_RED, COLOR_WHITE),
+  new Blink(COLOR_BLUE, COLOR_GREEN),
   new SpinningFadeInOut(170, 0, 200, 3, COLOR_CYAN),
   new SpinningFadeInOut(0, 255, 170, 4, COLOR_RED),
   new SpinningFadeInOut(100, 0, 150, 3, COLOR_GREEN),
@@ -475,7 +500,7 @@ Stepper* steppers[] = {
   new TwoCounterRotating(eyes.Color(255, 0, 255), eyes.Color(165, 170, 0)),
   new FadeInOutSpinner(0, 255, 0, eyes.Color(255, 0, 255)),
   new FadeInOutSpinner(255, 0, 0, COLOR_BLUE),
-  new FadeInOutSpinner(0, 255, 0, COLOR_CYAN),
+  new FadeInOutSpinner(0, 255, 0, COLOR_CYAN)
 };
 
 void step() {

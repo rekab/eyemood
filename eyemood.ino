@@ -2,7 +2,8 @@
 #include <Adafruit_NeoPixel.h>
 
 #define REPEAT_DELAY_MS 50
-#define STEPS_UNTIL_CHANGE 200
+#define STEPS_UNTIL_CHANGE 175
+#define BUTTON_DEBOUNCE_DELAY_MS 150
 
 #define WHITE_MOOD_BUTTON_LED_PIN 10
 #define WHITE_MOOD_BUTTON_SWITCH_PIN 11
@@ -55,12 +56,14 @@ uint8_t curStepper = 0;
 uint32_t stepsSinceChange = 0;
 
 uint8_t buttonToPinMap[5] = {
-  /* button0: */ YELLOW_MOOD_BUTTON_LED_PIN, 
-  /* button1: */ BLUE_MOOD_BUTTON_LED_PIN, 
-  /* button2: */ GREEN_MOOD_BUTTON_LED_PIN, 
-  /* button3: */ RED_MOOD_BUTTON_LED_PIN, 
-  /* button4: */ WHITE_MOOD_BUTTON_LED_PIN, 
+  /* button0: */ YELLOW_MOOD_BUTTON_LED_PIN,
+  /* button1: */ BLUE_MOOD_BUTTON_LED_PIN,
+  /* button2: */ GREEN_MOOD_BUTTON_LED_PIN,
+  /* button3: */ RED_MOOD_BUTTON_LED_PIN,
+  /* button4: */ WHITE_MOOD_BUTTON_LED_PIN,
 };
+
+unsigned long lastDebounceTime = 0;
 
 reaction animationReaction = INVALID_REACTION;
 
@@ -183,7 +186,6 @@ class TwoPixelSpinner : public Stepper {
   }
 
   virtual void animationStep() {
-    //Serial.println("TwoPixelSpinner animationStep()");
     uint8_t prevPixel = curPixel % NUM_NEOPIXEL_PIXELS;
     ++curPixel %= NUM_NEOPIXEL_PIXELS;
     eyes.setPixelColor(prevPixel, COLOR_BLACK);
@@ -220,7 +222,6 @@ class TwoPixelTwoColorSpinner : public Stepper {
   }
 
   virtual void animationStep() {
-    //Serial.println("TwoPixelSpinner animationStep()");
     uint8_t prevPixel = curPixel % NUM_NEOPIXEL_PIXELS;
     ++curPixel %= NUM_NEOPIXEL_PIXELS;
     eyes.setPixelColor(prevPixel, COLOR_BLACK);
@@ -494,11 +495,6 @@ void step() {
     digitalWrite(buttonToPinMap[2], curStepper & (1 <<2) ? HIGH : LOW);
     digitalWrite(buttonToPinMap[3], curStepper & (1 <<3) ? HIGH : LOW);
     digitalWrite(buttonToPinMap[4], curStepper & (1 <<4) ? HIGH : LOW);
-
-    Serial.print("numSteppers=");
-    Serial.println(numSteppers);
-    Serial.print("curStepper=");
-    Serial.println(curStepper);
   }
 
   Stepper* stepper = steppers[curStepper];
@@ -552,30 +548,49 @@ Reactduino app([] () {
   delay(200); // wait for voltage to stabilize
 
   app.onPinFallingNoInt(WHITE_MOOD_BUTTON_SWITCH_PIN, [] () {
+    long now = millis();
+    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
+      return;
+    }
+    lastDebounceTime = now;
     moodSelector(WHITE_MOOD_BUTTON_SELECTOR_VALUE);
-    // Small delay to debounce button presses.
-    delay(5);
   });
 
   // question: why NoInt? neopixel?
   app.onPinFallingNoInt(RED_MOOD_BUTTON_SWITCH_PIN, [] () {
+    long now = millis();
+    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
+      return;
+    }
+    lastDebounceTime = now;
     moodSelector(RED_MOOD_BUTTON_SELECTOR_VALUE);
-    delay(5);
   });
 
   app.onPinFallingNoInt(GREEN_MOOD_BUTTON_SWITCH_PIN, [] () {
+    long now = millis();
+    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
+      return;
+    }
+    lastDebounceTime = now;
     moodSelector(GREEN_MOOD_BUTTON_SELECTOR_VALUE);
-    delay(5);
   });
 
   app.onPinFallingNoInt(BLUE_MOOD_BUTTON_SWITCH_PIN, [] () {
+    long now = millis();
+    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
+      return;
+    }
+    lastDebounceTime = now;
     moodSelector(BLUE_MOOD_BUTTON_SELECTOR_VALUE);
-    delay(5);
   });
 
   app.onPinFallingNoInt(YELLOW_MOOD_BUTTON_SWITCH_PIN, [] () {
+    long now = millis();
+    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
+      return;
+    }
+    lastDebounceTime = now;
     moodSelector(YELLOW_MOOD_BUTTON_SELECTOR_VALUE);
-    delay(5);
   });
 
   animationReaction = app.repeat(REPEAT_DELAY_MS, [] () {

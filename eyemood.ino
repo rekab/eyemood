@@ -117,7 +117,6 @@ class TwoColorRotatingStepper : public Stepper {
   }
 
   virtual bool setupStep() {
-    Serial.print("TwoColorRotationStepper: setupStep pixel ");
     Serial.println(setupPixel);
     // Color half the pixels color1, the other half color2
     eyes.setPixelColor(setupPixel,
@@ -128,15 +127,12 @@ class TwoColorRotatingStepper : public Stepper {
   }
 
   virtual void animationStep() {
-    //Serial.println("TwoColorRotationStepper::animationStep()");
     color1Start++;
     color1Start %= NUM_NEOPIXEL_PIXELS; // Have we walked off the end?
-    Serial.print(color1, HEX);
     eyes.setPixelColor(color1Start, color1);
 
     color2Start++;
     color2Start %= NUM_NEOPIXEL_PIXELS;
-    Serial.println(color2, HEX);
     eyes.setPixelColor(color2Start, color2);
 
     eyes.show();
@@ -260,14 +256,12 @@ class FadeInOut : public Stepper {
   FadeInOut(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b), gamma(0) {}
 
   virtual bool setupStep() {
-    Serial.println("FadeInOut setup()");
     eyes.clear();
     eyes.show();
     return true;
   }
 
   virtual void animationStep() {
-    //Serial.println("FadeInOut animationStep()");
     uint8_t brightness = eyes.sine8(gamma += 10);
     setAllPixelsToColor(
         eyes.Color(r * (brightness / 255.0),
@@ -286,14 +280,12 @@ class Sparkle : public Stepper {
   }
 
   virtual bool setupStep() {
-    Serial.println("Sparkle setup()");
     eyes.clear();
     eyes.show();
     return true;
   }
 
   virtual void animationStep() {
-    //Serial.println("Sparkle animationStep()");
     // Turn all pixels on again.
     eyes.clear();
     // Pick some pixels to turn back on.
@@ -317,7 +309,6 @@ class Rainbow : public Stepper {
   }
 
   virtual void animationStep() {
-    //Serial.println("Rainbow setup()");
     hue += speed;
     eyes.rainbow(hue);
     eyes.show();
@@ -331,7 +322,6 @@ class TwoCounterRotating : public Stepper {
   TwoCounterRotating(uint32_t color1, uint32_t color2) : color1(color1), color2(color2) { }
 
   virtual bool setupStep() {
-    Serial.println("TwoCounterRotating setup()");
     eyes.clear();
     eyes.show();
     return true;
@@ -358,37 +348,36 @@ class TwoCounterRotating : public Stepper {
 };
 
 
-/*
 // Sweeps 3 active pixels, 3 through 9
 class PendulumLeftRight : public Stepper {
-  uint32_t color;
-  uint8_t activePixel;
+  uint32_t color1, color2, color3;
+  float pos;
+  uint8_t ctr;
   public:
-  PendulumLeftRight(uint32_t color) : color(color), sweep(6) {}
-  virtual bool setupStep() {
-    setAllPixelsToColor(COLOR_BLACK);
-    colorActivePixels();
+  PendulumLeftRight(uint32_t color1, uint32_t color2, uint32_t color3) :
+    color1(color1), color2(color2), color3(color3), pos(0), ctr(0) {}
+
+  void colorActivePixels() {
+    eyes.clear();
+    eyes.setPixelColor(3 + pos - 1, color1);
+    eyes.setPixelColor(3 + pos, color2);
+    eyes.setPixelColor(3 + pos + 1, color3);
     eyes.show();
+  }
+
+  virtual bool setupStep() {
+    colorActivePixels();
     return true;
   }
 
-  void colorActivePixels() {
-    eyes.setPixelColor(activePixel - 1, color);
-    eyes.setPixelColor(activePixel, color);
-    eyes.setPixelColor(activePixel + 1, color);
-  }
-
   virtual void animationStep() {
-    setAllPixelsToColor(COLOR_BLACK);
+    eyes.clear();
+    uint8_t s = eyes.sine8(ctr+=10);
+    pos = s/48.0;
     colorActivePixels();
-    activePixel = 
-    // how many cycles we skip is determined by sweep
   }
 };
 
-*/
-
-// something
 class SpinningFadeInOut : public Stepper {
   uint8_t r, g, b, gamma, mod, offset; 
   uint32_t spinnerColor;
@@ -398,14 +387,12 @@ class SpinningFadeInOut : public Stepper {
     : r(r), g(g), b(b), mod(mod), spinnerColor(spinnerColor), gamma(0), offset(0) {}
 
   virtual bool setupStep() {
-    Serial.println("SpinningFadeInOut setup()");
     eyes.clear();
     eyes.show();
     return true;
   }
 
   virtual void animationStep() {
-    //Serial.println("FadeInOut animationStep()");
     uint8_t brightness = eyes.sine8(gamma += 10);
     for (uint8_t i = 0; i < NUM_NEOPIXEL_PIXELS; i++) {
       uint32_t bgColor = eyes.Color(r * (brightness / 255.0),
@@ -428,7 +415,6 @@ class FadeInOutSpinner : public Stepper {
     : r(r), g(g), b(b), pixelColor(pixelColor), gamma(0), curPixel(0) {}
 
   virtual bool setupStep() {
-    Serial.println("FadeInOutSpinner setup()");
     eyes.clear();
     eyes.show();
     return true;
@@ -453,7 +439,6 @@ class Blink : public Stepper {
   public:
   Blink(uint32_t bgColor, uint32_t fgColor) : bgColor(bgColor), fgColor(fgColor), blinked(false) {}
   virtual bool setupStep() {
-    Serial.println("Blink setup()");
     setAllPixelsToColor(bgColor);
     eyes.show();
     return true;
@@ -471,6 +456,9 @@ class Blink : public Stepper {
 };
 
 Stepper* steppers[] = {
+  new PendulumLeftRight(COLOR_RED, COLOR_BLUE, COLOR_RED),
+  new PendulumLeftRight(COLOR_CYAN, COLOR_LIGHT_PURPLE, COLOR_CYAN),
+  new PendulumLeftRight(COLOR_LIGHT_PURPLE, COLOR_GREEN, COLOR_LIGHT_PURPLE),
   new Blink(COLOR_RED, COLOR_WHITE),
   new Blink(COLOR_BLUE, COLOR_GREEN),
   new SpinningFadeInOut(170, 0, 200, 3, COLOR_CYAN),
@@ -493,7 +481,7 @@ Stepper* steppers[] = {
   new TwoPixelSpinner(COLOR_LIGHT_PURPLE),
   new TwoPixelSpinner(COLOR_GREEN),
   new TwoPixelTwoColorSpinner(COLOR_RED, COLOR_BLUE),
-  new TwoPixelTwoColorSpinner(COLOR_GREEN, eyes.Color(200, 165, 0)),
+  new TwoPixelTwoColorSpinner(COLOR_GREEN, COLOR_BLUE),
   new TwoPixelTwoColorSpinner(COLOR_CYAN, COLOR_LIGHT_PURPLE),
   new TwoCounterRotating(COLOR_RED, COLOR_BLUE),
   new TwoCounterRotating(COLOR_GREEN, COLOR_RED),
@@ -509,13 +497,6 @@ void step() {
     ? curStepper % sizeof(steppers) 
     : curStepper;
 
-  //Serial.print("step()ing: curStepper=");
-  //Serial.print(curStepper);
-  //Serial.print(" stepsSinceChange=");
-  //Serial.print(stepsSinceChange);
-  //Serial.print(" curStepper=");
-  //Serial.print(curStepper);
-
   Stepper* stepper = steppers[curStepper];
   while (NULL == stepper) {
     Serial.print("skipping NULL stepper ");
@@ -525,42 +506,6 @@ void step() {
   }
 
   stepper->step();
-}
-
-void goWhiteMood() {
-  whiteToggle = !whiteToggle;
-  //Serial.println("white");
-  stepsSinceChange = 0;
-	digitalWrite(WHITE_MOOD_BUTTON_LED_PIN, whiteToggle ? HIGH : LOW);
-  ++curStepper %= sizeof(steppers);
-  steppers[curStepper]->resetToSetup();
-}
-
-void goRedMood() {
-  redToggle = !redToggle;
-  //Serial.println("red");
-  stepsSinceChange = 0;
-	digitalWrite(RED_MOOD_BUTTON_LED_PIN, redToggle ? HIGH : LOW);
-  ++curStepper %= sizeof(steppers);
-  steppers[curStepper]->resetToSetup();
-}
-
-void goGreenMood() {
-  greenToggle = !greenToggle;
-  //Serial.println("green");
-  stepsSinceChange = 0;
-	digitalWrite(GREEN_MOOD_BUTTON_LED_PIN, greenToggle ? HIGH : LOW);
-  ++curStepper %= sizeof(steppers);
-  steppers[curStepper]->resetToSetup();
-}
-
-void goBlueMood() {
-  blueToggle = !blueToggle;
-  //Serial.println("blue");
-  stepsSinceChange = 0;
-	digitalWrite(BLUE_MOOD_BUTTON_LED_PIN, blueToggle ? HIGH : LOW);
-  ++curStepper %= sizeof(steppers);
-  steppers[curStepper]->resetToSetup();
 }
 
 // buttonPressed: expects button 0 through 4
@@ -606,7 +551,7 @@ Reactduino app([] () {
 
   app.onPinFallingNoInt(WHITE_MOOD_BUTTON_SWITCH_PIN, [] () {
     Serial.println("white");
-    goWhiteMood();
+    moodSelector(WHITE_MOOD_BUTTON_SELECTOR_VALUE, WHITE_MOOD_BUTTON_LED_PIN);
     // Small delay to debounce button presses.
     delay(5);
   });
@@ -614,19 +559,19 @@ Reactduino app([] () {
   // question: why NoInt? neopixel?
   app.onPinFallingNoInt(RED_MOOD_BUTTON_SWITCH_PIN, [] () {
     Serial.println("red");
-    goRedMood();
+    moodSelector(RED_MOOD_BUTTON_SELECTOR_VALUE, RED_MOOD_BUTTON_LED_PIN);
     delay(5);
   });
 
   app.onPinFallingNoInt(GREEN_MOOD_BUTTON_SWITCH_PIN, [] () {
     Serial.println("green");
-    goGreenMood();
+    moodSelector(GREEN_MOOD_BUTTON_SELECTOR_VALUE, GREEN_MOOD_BUTTON_LED_PIN);
     delay(5);
   });
 
   app.onPinFallingNoInt(BLUE_MOOD_BUTTON_SWITCH_PIN, [] () {
     Serial.println("blue");
-    goBlueMood();
+    moodSelector(BLUE_MOOD_BUTTON_SELECTOR_VALUE, BLUE_MOOD_BUTTON_LED_PIN);
     delay(5);
   });
 

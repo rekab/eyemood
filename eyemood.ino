@@ -1,10 +1,11 @@
 /**
-  * A thing to animate a pair of 12-LED NeoPixel Ring.
+  * A thing to animate NeoPixel Ring(s) with 12 LEDs.
   *
-  * 5 input buttons: white, red, green, blue, yellow
+  * Takes 5 input buttons (white, red, green, blue, yellow) that have LED
+  * lights.
   *
   * Together these represent the bits in a 5-bit integer, which is used
-  * as an index of 32 different animations.
+  * as an index of 32 different animations ("Steppers").
   *
   * Each of the buttons have an LED that's lit based on if their bit is
   * a 1 (on) or 0 (off). This bit pattern changes by counting upwards by one

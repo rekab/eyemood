@@ -1,3 +1,20 @@
+/**
+  * A thing to animate a pair of 12-LED NeoPixel Ring.
+  *
+  * 5 input buttons: white, red, green, blue, yellow
+  *
+  * Together these represent the bits in a 5-bit integer, which is used
+  * as an index of 32 different animations.
+  *
+  * Each of the buttons have an LED that's lit based on if their bit is
+  * a 1 (on) or 0 (off). This bit pattern changes by counting upwards by one
+  * every ~8.7 seconds. It wraps back to 0 after 31.
+  *
+  * With debugging log statements this barely fit on an Arduino Uno, so they've
+  * been mostly removed.
+  *
+  * 2022-10-02: Uploaded and put into costume. Not yet fastened down.
+  */
 #include <Reactduino.h>
 #include <Adafruit_NeoPixel.h>
 

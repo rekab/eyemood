@@ -541,7 +541,7 @@ bool moodSelector(uint8_t buttonPressed) {
   bool val = curStepper & (1 << buttonPressed);
 
   // turn on/off the light
-	digitalWrite(pin, val ? HIGH : LOW);
+  digitalWrite(pin, val ? HIGH : LOW);
 
   // Start the animation
   steppers[curStepper]->resetToSetup();

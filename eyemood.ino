@@ -520,6 +520,13 @@ void step() {
 
 // buttonPressed: expects button 0 through 4
 bool moodSelector(uint8_t buttonPressed) {
+  // Prevent button bouncing.
+  long now = millis();
+  if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
+    return;
+  }
+  lastDebounceTime = now;
+
   uint8_t pin = buttonToPinMap[buttonPressed];
   stepsSinceChange = 0;
   // XOR button toggle
@@ -565,48 +572,23 @@ Reactduino app([] () {
   delay(200); // wait for voltage to stabilize
 
   app.onPinFallingNoInt(WHITE_MOOD_BUTTON_SWITCH_PIN, [] () {
-    long now = millis();
-    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
-      return;
-    }
-    lastDebounceTime = now;
     moodSelector(WHITE_MOOD_BUTTON_SELECTOR_VALUE);
   });
 
   // question: why NoInt? neopixel?
   app.onPinFallingNoInt(RED_MOOD_BUTTON_SWITCH_PIN, [] () {
-    long now = millis();
-    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
-      return;
-    }
-    lastDebounceTime = now;
     moodSelector(RED_MOOD_BUTTON_SELECTOR_VALUE);
   });
 
   app.onPinFallingNoInt(GREEN_MOOD_BUTTON_SWITCH_PIN, [] () {
-    long now = millis();
-    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
-      return;
-    }
-    lastDebounceTime = now;
     moodSelector(GREEN_MOOD_BUTTON_SELECTOR_VALUE);
   });
 
   app.onPinFallingNoInt(BLUE_MOOD_BUTTON_SWITCH_PIN, [] () {
-    long now = millis();
-    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
-      return;
-    }
-    lastDebounceTime = now;
     moodSelector(BLUE_MOOD_BUTTON_SELECTOR_VALUE);
   });
 
   app.onPinFallingNoInt(YELLOW_MOOD_BUTTON_SWITCH_PIN, [] () {
-    long now = millis();
-    if (now - lastDebounceTime < BUTTON_DEBOUNCE_DELAY_MS) {
-      return;
-    }
-    lastDebounceTime = now;
     moodSelector(YELLOW_MOOD_BUTTON_SELECTOR_VALUE);
   });
 

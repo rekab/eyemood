@@ -1,5 +1,7 @@
 # eyemood
 
+[![Video of a robot costume](https://img.youtube.com/vi/6ULORxLHcV8/0.jpg)](https://www.youtube.com/watch?v=6ULORxLHcV8)
+
 A thing to animate NeoPixel ring(s) with 12 LEDs.
 
 Takes 5 input buttons (white, red, green, blue, yellow) that have LED
